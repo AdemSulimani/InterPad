@@ -24,7 +24,7 @@ const Header = () => {
           </nav>
           
           <div className="header-right">
-            <button className="btn-get-started">Get Started</button>
+            <Link to="/login" className="btn-get-started">Get Started</Link>
             <Link to="/login" className="btn-login">Login</Link>
           </div>
           
@@ -51,7 +51,7 @@ const Header = () => {
           <a href="#links" className="sidebar-link" onClick={toggleMenu}>Links</a>
         </nav>
         <div className="sidebar-buttons">
-          <button className="btn-get-started">Get Started</button>
+          <Link to="/login" className="btn-get-started" onClick={toggleMenu}>Get Started</Link>
           <Link to="/login" className="btn-login" onClick={toggleMenu}>Login</Link>
         </div>
       </div>
