@@ -1,0 +1,129 @@
+.contribute-section {
+  width: 1000px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  padding: 40px 20px 80px 20px;
+  margin: 0 auto;
+}
+
+.contribute-container {
+  width: 100%;
+}
+
+.contribute-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.contribute-heading {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 31.8px;
+  font-weight: 600;
+  color: #44b492;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.heading-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.contribute-paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.contribute-paragraph {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: #333333;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.contribute-paragraph .highlighted-link {
+  color: #44b492;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.workflow-section {
+  margin-top: 20px;
+}
+
+.workflow-heading {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 21.25px;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.workflow-paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.workflow-paragraph {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: #333333;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.workflow-paragraph .highlighted-link {
+  color: #44b492;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.workflow-paragraph .code-highlight {
+  background-color: #000000;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .contribute-section {
+    padding: 30px 20px;
+  }
+  
+  .contribute-heading {
+    font-size: 26px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .contribute-paragraph,
+  .workflow-paragraph {
+    font-size: 16px;
+  }
+  
+  .workflow-heading {
+    font-size: 18px;
+  }
+}
+
