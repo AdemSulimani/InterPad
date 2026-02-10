@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface AuthUser {
   id: string;
@@ -24,7 +24,7 @@ export async function registerUser(payload: {
   password: string;
   confirmPassword: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/auth/register`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export async function loginUser(payload: {
   email: string;
   password: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ export async function verifyAuthCode(payload: {
   email: string;
   code: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/verify-code`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export async function verifyAuthCode(payload: {
 }
 
 export async function resendVerificationCode(payload: { email: string }) {
-  const res = await fetch(`${API_BASE_URL}/auth/resend-code`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/resend-code`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
