@@ -179,9 +179,15 @@ export function splitPageContent(
     htmlPage1 = split.htmlPage1;
     htmlPage2 = split.htmlPage2;
   } else if (overflowIndex === 0) {
-    htmlPage1 = EMPTY_PAGE_HTML;
+    // Elementi i parë del jashtë por ka edhe të tjerë: ndaje vetëm të parin, pjesa e parë mbetet në faqen 1
+    const first = children[0] as Element;
+    const split = splitSingleOverflowingElement(first, innerTop, pageHeightPx);
+    htmlPage1 = split.htmlPage1.trim() ? split.htmlPage1 : EMPTY_PAGE_HTML;
     const part2 = document.createElement('div');
-    children.forEach((child) => part2.appendChild(child.cloneNode(true)));
+    part2.innerHTML = split.htmlPage2;
+    for (let i = 1; i < children.length; i++) {
+      part2.appendChild(children[i].cloneNode(true));
+    }
     htmlPage2 = part2.innerHTML;
   } else {
     const part1 = document.createElement('div');

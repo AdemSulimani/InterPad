@@ -158,6 +158,7 @@ const EditorArea = ({ onAddCommentClick, onCommentHighlightClick }: EditorAreaPr
   const focusPageAfterSplitRef = useRef<number | null>(null);
   const documentPagesRef = useRef<string[]>(document.pages);
   documentPagesRef.current = document.pages;
+  const prevPagesLengthRef = useRef(document.pages.length);
 
   const [commentSelection, setCommentSelection] = useState<CommentSelectionState | null>(null);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -178,6 +179,26 @@ const EditorArea = ({ onAddCommentClick, onCommentHighlightClick }: EditorAreaPr
       if (saved !== null) restoreSelection(el, saved);
     }
   }, [document.id]);
+
+  // Kur shtohen faqe të reja (p.sh. pas overflow split), mbush faqet e reja me përmbajtjen nga state
+  // që teksti që kalon në faqen e re të shfaqet në DOM (refs janë set tashmë pas commit).
+  useEffect(() => {
+    const prevLen = prevPagesLengthRef.current;
+    const currLen = document.pages.length;
+    if (currLen > prevLen) {
+      for (let j = prevLen; j < currLen; j++) {
+        const el = pageRefs.current[j];
+        const raw = document.pages[j]?.trim() || '';
+        const contentFromState = raw || getEmptyPageContent(j, currLen);
+        if (el && el.innerHTML !== contentFromState) {
+          el.innerHTML = contentFromState;
+        }
+      }
+      prevPagesLengthRef.current = currLen;
+    } else {
+      prevPagesLengthRef.current = currLen;
+    }
+  }, [document.pages.length, document.pages]);
 
   // Pas split, fokuson faqen e re (pageIndex + 1) dhe vendos kursorin në fillim (Hapi 8 opsional).
   useEffect(() => {
