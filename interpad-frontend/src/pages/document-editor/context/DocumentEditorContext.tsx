@@ -8,19 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { DocumentModel } from '../types/document';
-import {
-  getDefaultDocument,
-  getDocumentContent,
-  serializePagesToText,
-  splitTextToPages,
-} from '../types/document';
+import { getDefaultDocument } from '../types/document';
 import type { DocumentComment } from '../../services';
-import {
-  type ConnectionStatus,
-  type RealtimeOperation,
-  type RealtimePresenceUser,
-} from '../../../realtime/protocol';
-import { useDocumentRealtime } from '../../../hooks';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -34,10 +23,6 @@ export interface CommentAnchorScroll {
 export interface DocumentEditorContextValue {
   /** Dokumenti aktual (id, title, pages, metadata) */
   document: DocumentModel;
-  /** Teksti i plotë i dokumentit (të gjitha faqet bashkë – përdoret nga realtime layer). */
-  fullText: string;
-  /** Versioni i fundit i njohur i dokumentit nga realtime server (monotonik). */
-  fullTextVersion: number;
   /** A ka ndryshime të paruajtura */
   hasUnsavedChanges: boolean;
   /** Gjendja e ruajtjes – për UI (indicator, butonin Save) */
@@ -86,14 +71,6 @@ export interface DocumentEditorContextValue {
   zoomLevel: number;
   /** Vendos nivelin e zoom-it (thirret nga StatusBar). */
   setZoomLevel: (value: number) => void;
-  /** Gjendja aktuale e lidhjes realtime për këtë dokument. */
-  connectionStatus: ConnectionStatus;
-  /** Lista e bashkëpunëtorëve aktivë në këtë dokument (nga presence layer). */
-  activeUsers: RealtimePresenceUser[];
-  /** Lista e fundit e operations të aplikuara nga realtime serveri – përdoret për të rregulluar cursorin lokal. */
-  lastAppliedOps: RealtimeOperation[] | null;
-  /** Pas konsumimit nga editori, pastron lastAppliedOps që të mos reaplikohet. */
-  clearLastAppliedOps: () => void;
 }
 
 const DocumentEditorContext = createContext<DocumentEditorContextValue | null>(null);
@@ -101,15 +78,6 @@ const DocumentEditorContext = createContext<DocumentEditorContextValue | null>(n
 const ZOOM_STORAGE_KEY = 'interpad-editor-zoom';
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 200;
-
-function arePageArraysEqual(a: string[], b: string[]): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
 
 function getStoredZoomLevel(): number {
   if (typeof window === 'undefined') return 100;
@@ -125,45 +93,8 @@ function getStoredZoomLevel(): number {
   return 100;
 }
 
-/** Aplikon një listë operations (insert/delete) mbi një tekst dhe kthen tekstin e ri. */
-function applyOpsToText(baseText: string, ops: RealtimeOperation[]): string {
-  let text = baseText;
-
-  for (const op of ops) {
-    const pos = Math.max(0, Math.min(text.length, op.pos));
-
-    if (op.type === 'delete') {
-      const length = Math.max(
-        0,
-        Math.min(op.length ?? 0, text.length - pos)
-      );
-      if (length > 0) {
-        text = text.slice(0, pos) + text.slice(pos + length);
-      }
-    } else if (op.type === 'insert') {
-      const insertText = op.text ?? '';
-      if (insertText.length > 0) {
-        text = text.slice(0, pos) + insertText + text.slice(pos);
-      }
-    }
-  }
-
-  return text;
-}
-
 export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   const [document, setDocumentState] = useState<DocumentModel>(getDefaultDocument);
-  // serverText/serverVersion: gjendja e fundit e konfirmuar nga serveri (realtime autosave).
-  const [serverText, setServerText] = useState<string>(() =>
-    getDocumentContent(getDefaultDocument())
-  );
-  const [serverVersion, setServerVersion] = useState<number>(0);
-  // fullText: gjendja lokale e editorit (serverText + pendingOps).
-  const [fullText, setFullText] = useState<string>(() =>
-    getDocumentContent(getDefaultDocument())
-  );
-  // fullTextVersion: në këtë fazë pasqyron serverVersion-in e fundit të njohur.
-  const [fullTextVersion, setFullTextVersion] = useState<number>(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatusState] = useState<SaveStatus>('idle');
   const [focusedPageIndex, setFocusedPageIndex] = useState(0);
@@ -377,17 +308,6 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
 
   const setDocument = useCallback((doc: DocumentModel) => {
     setDocumentState(doc);
-    const content = getDocumentContent(doc);
-    const version = typeof doc.version === 'number' ? doc.version : 0;
-    // Kur hapim një dokument nga REST API, konsiderojmë që serverText == fullText
-    // dhe nuk ka pendingOps.
-    setServerText(content);
-    setServerVersion(version);
-    setFullText(content);
-    setFullTextVersion(version);
-    serverTextRef.current = content;
-    serverVersionRef.current = version;
-    pendingOpsRef.current = [];
     setHasUnsavedChanges(false);
     setFocusedPageIndex(0);
   }, []);
@@ -402,37 +322,22 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setContent = useCallback((value: string) => {
-    setDocumentState((prev) => {
-      const previousPages = prev.pages;
-      const nextPages = [value];
-      syncFullTextAndSendOps(previousPages, nextPages);
-      return { ...prev, pages: nextPages };
-    });
+    setDocumentState((prev) => ({ ...prev, pages: [value] }));
     setHasUnsavedChanges(true);
-  }, [syncFullTextAndSendOps]);
+  }, []);
 
   const setPages = useCallback((pages: string[]) => {
-    setDocumentState((prev) => {
-      const previousPages = prev.pages;
-      const nextPages = pages;
-      syncFullTextAndSendOps(previousPages, nextPages);
-      return { ...prev, pages: nextPages };
-    });
+    setDocumentState((prev) => ({ ...prev, pages }));
     setHasUnsavedChanges(true);
-  }, [syncFullTextAndSendOps]);
+  }, []);
 
   const setPageContent = useCallback((pageIndex: number, value: string) => {
-    setDocumentState((prev) => {
-      const previousPages = prev.pages;
-      const nextPages = prev.pages.map((p, i) => (i === pageIndex ? value : p));
-      syncFullTextAndSendOps(previousPages, nextPages);
-      return {
-        ...prev,
-        pages: nextPages,
-      };
-    });
+    setDocumentState((prev) => ({
+      ...prev,
+      pages: prev.pages.map((p, i) => (i === pageIndex ? value : p)),
+    }));
     setHasUnsavedChanges(true);
-  }, [syncFullTextAndSendOps]);
+  }, []);
 
   const setSaveStatus = useCallback((status: SaveStatus) => {
     setSaveStatusState(status);
@@ -498,10 +403,6 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
     setZoomLevelState(clamped);
   }, []);
 
-  const clearLastAppliedOps = useCallback(() => {
-    setLastAppliedOps(null);
-  }, []);
-
   useEffect(() => {
     try {
       window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoomLevel));
@@ -510,64 +411,8 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [zoomLevel]);
 
-  // Kur merrim state fillestar nga realtime serveri, sinkronizojmë fullText + pages.
-  useEffect(() => {
-    if (!initialState) return;
-    if (!document.id || initialState.documentId !== document.id) return;
-
-    const pagesFromRealtime = splitTextToPages(initialState.text);
-    setDocumentState((prev) => ({
-      ...prev,
-      id: initialState.documentId,
-      title: prev.title || initialState.title || prev.title,
-      pages: pagesFromRealtime,
-      version: initialState.version,
-    }));
-    // Kur sinkronizohemi me state-in fillestar nga realtime serveri,
-    // e konsiderojmë atë si burimin e vërtetë (serverText) dhe nuk
-    // kemi ende pendingOps lokale.
-    setServerText(initialState.text);
-    setServerVersion(initialState.version);
-    setFullText(initialState.text);
-    setFullTextVersion(initialState.version);
-    serverTextRef.current = initialState.text;
-    serverVersionRef.current = initialState.version;
-    pendingOpsRef.current = [];
-    // Realtime state konsiderohet si "e ruajtur" – nuk ka ndryshime lokale ende.
-    setHasUnsavedChanges(false);
-  }, [document.id, initialState]);
-
-  // Kur fullText ndryshon (p.sh. nga ops të reja të konfirmuara nga serveri),
-  // sinkronizojmë pages në document state pa gjeneruar ops të rinj.
-  useEffect(() => {
-    if (!document.id) return;
-
-    // Nëse kjo ndryshim i fullText vjen si rezultat i aplikimit të ops-ve remote,
-    // e lëmë menaxhimin e faqeve tek logjika tjetër (p.sh. në EditorArea) për të
-    // shmangur split-in e dyfishtë që mund të shkaktojë duplikime faqesh.
-    if (isApplyingRemoteOpsRef.current) {
-      isApplyingRemoteOpsRef.current = false;
-      return;
-    }
-
-    const pagesFromFullText = splitTextToPages(fullText);
-
-    setDocumentState((prev) => {
-      // Sigurohemi që po përditësojmë dokumentin e duhur.
-      if (prev.id !== document.id) return prev;
-      if (arePageArraysEqual(prev.pages, pagesFromFullText)) return prev;
-
-      return {
-        ...prev,
-        pages: pagesFromFullText,
-      };
-    });
-  }, [document.id, fullText, fullTextVersion]);
-
   const value: DocumentEditorContextValue = {
     document,
-    fullText,
-    fullTextVersion,
     hasUnsavedChanges,
     saveStatus,
     editorRef,
@@ -592,10 +437,6 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
     setComments,
     zoomLevel,
     setZoomLevel,
-    connectionStatus,
-    activeUsers,
-    lastAppliedOps,
-    clearLastAppliedOps,
   };
 
   return (
