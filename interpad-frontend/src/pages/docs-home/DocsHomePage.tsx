@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './style/DocsHomePage.css';
-import { getRecentDocuments } from '../../services';
+import { getRecentDocuments, deleteDocument } from '../../services';
 import type { RecentDocumentItem } from '../../services';
 
 function formatDocumentDate(isoDate?: string): string {
@@ -24,6 +24,8 @@ const DocsHomePage = () => {
   const [recentDocs, setRecentDocs] = useState<RecentDocumentItem[]>([]);
   const [recentDocsLoading, setRecentDocsLoading] = useState(true);
   const [recentDocsError, setRecentDocsError] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'date' | 'alphabetical'>('date');
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const profileLeaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
@@ -89,6 +91,43 @@ const DocsHomePage = () => {
     setProfileOpen(false);
     window.location.href = '/login';
   };
+
+  const handleDeleteDocument = async (docId: string, docTitle: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${docTitle || 'Untitled Document'}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingDocId(docId);
+    try {
+      await deleteDocument(docId);
+      await loadRecentDocuments();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+
+  const handleSortToggle = () => {
+    setSortOrder((prev) => (prev === 'date' ? 'alphabetical' : 'date'));
+  };
+
+  const sortedDocs = useMemo(() => {
+    const docs = [...recentDocs];
+    if (sortOrder === 'alphabetical') {
+      return docs.sort((a, b) => {
+        const titleA = (a.title || 'Untitled Document').toLowerCase();
+        const titleB = (b.title || 'Untitled Document').toLowerCase();
+        return titleA.localeCompare(titleB);
+      });
+    } else {
+      return docs.sort((a, b) => {
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    }
+  }, [recentDocs, sortOrder]);
 
   return (
     <div className="docs-home-page">
@@ -189,24 +228,15 @@ const DocsHomePage = () => {
               <option value="anyone">Owned by anyone</option>
             </select>
             <div className="docs-home-recent-icons">
-              <button type="button" className="docs-home-recent-icon-btn" aria-label="Grid view" title="Grid view">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M3 3v8h8V3H3zm10 0v8h8V3h-8zM3 13v8h8v-8H3zm10 0v8h8v-8h-8z" />
-                </svg>
-              </button>
-              <button type="button" className="docs-home-recent-icon-btn" aria-label="List view" title="List view">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
-                </svg>
-              </button>
-              <button type="button" className="docs-home-recent-icon-btn" aria-label="Sort A-Z" title="Sort A-Z">
+              <button 
+                type="button" 
+                className={`docs-home-recent-icon-btn ${sortOrder === 'alphabetical' ? 'active' : ''}`}
+                aria-label="Sort A-Z" 
+                title={sortOrder === 'alphabetical' ? 'Sort by date' : 'Sort A-Z'}
+                onClick={handleSortToggle}
+              >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                   <path d="M12 6l-2 4H6l3 3-1 5 4-2.5 4 2.5-1-5 3-3h-4l-2-4zm-1.5 5.5l1.5-3 1.5 3h-3z" />
-                </svg>
-              </button>
-              <button type="button" className="docs-home-recent-icon-btn" aria-label="Folders" title="Folders">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
                 </svg>
               </button>
             </div>
@@ -237,26 +267,49 @@ const DocsHomePage = () => {
             </div>
           ) : (
             <ul className="docs-home-recent-list" aria-label="Recent documents">
-              {recentDocs.map((doc) => (
+              {sortedDocs.map((doc) => (
                 <li key={doc.id}>
-                  <button
-                    type="button"
-                    className="docs-home-recent-doc-card"
-                    onClick={() => navigate(`/editor/${doc.id}`)}
-                  >
-                    <span className="docs-home-recent-doc-icon" aria-hidden>
-                      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-                        <path d="M14 2v6h6" />
-                      </svg>
-                    </span>
-                    <div className="docs-home-recent-doc-info">
-                      <span className="docs-home-recent-doc-title">{doc.title || 'Untitled Document'}</span>
-                      {doc.updatedAt && (
-                        <span className="docs-home-recent-doc-date">{formatDocumentDate(doc.updatedAt)}</span>
+                  <div className="docs-home-recent-doc-card-wrapper">
+                    <button
+                      type="button"
+                      className="docs-home-recent-doc-card"
+                      onClick={() => navigate(`/editor/${doc.id}`)}
+                    >
+                      <span className="docs-home-recent-doc-icon" aria-hidden>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
+                      </span>
+                      <div className="docs-home-recent-doc-info">
+                        <span className="docs-home-recent-doc-title">{doc.title || 'Untitled Document'}</span>
+                        {doc.updatedAt && (
+                          <span className="docs-home-recent-doc-date">{formatDocumentDate(doc.updatedAt)}</span>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="docs-home-recent-doc-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDocument(doc.id, doc.title);
+                      }}
+                      disabled={deletingDocId === doc.id}
+                      aria-label={`Delete ${doc.title || 'document'}`}
+                      title="Delete document"
+                    >
+                      {deletingDocId === doc.id ? (
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="spinning">
+                          <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="30" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
                       )}
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

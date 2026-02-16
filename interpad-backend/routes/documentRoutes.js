@@ -13,6 +13,12 @@ router.get('/', documentController.getRecent);
 // POST /api/documents – krijon dokument të ri
 router.post('/', documentController.create);
 
+// POST /api/documents/:id/share – krijon ose kthen një share link për dokumentin
+router.post('/:id/share', documentController.createShareLink);
+
+// GET /api/documents/:id/access – kthen informacion rreth aksesit në dokument
+router.get('/:id/access', documentController.getAccessInfo);
+
 // Komente për dokument – duhet para /:id që /:id/comments të përputhet
 // GET /api/documents/:id/comments – lista komentesh për dokumentin
 router.get('/:id/comments', commentController.getByDocument);
@@ -28,5 +34,8 @@ router.get('/:id', documentController.getOne);
 
 // PUT /api/documents/:id – përditëson dokument
 router.put('/:id', documentController.update);
+
+// DELETE /api/documents/:id – fshin dokument
+router.delete('/:id', documentController.deleteOne);
 
 module.exports = router;

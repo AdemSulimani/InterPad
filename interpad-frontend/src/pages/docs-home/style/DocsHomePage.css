@@ -628,6 +628,11 @@
   color: var(--docs-text);
 }
 
+.docs-home-recent-icon-btn.active {
+  background: rgba(66, 133, 244, 0.1);
+  color: #4285F4;
+}
+
 .docs-home-recent-content {
   min-height: 220px;
   border-radius: var(--docs-radius);
@@ -680,11 +685,22 @@
   margin: 0;
 }
 
+.docs-home-recent-doc-card-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.docs-home-recent-doc-card-wrapper:hover .docs-home-recent-doc-delete {
+  opacity: 1;
+}
+
 .docs-home-recent-doc-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
+  flex: 1;
   padding: 10px 16px;
   border: none;
   border-radius: var(--docs-radius-sm);
@@ -699,6 +715,51 @@
 
 .docs-home-recent-doc-card:hover {
   background: var(--docs-surface-hover);
+}
+
+.docs-home-recent-doc-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--docs-text-secondary);
+  border-radius: var(--docs-radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.docs-home-recent-doc-delete:hover {
+  background: rgba(234, 67, 53, 0.1);
+  color: #EA4335;
+  opacity: 1;
+}
+
+.docs-home-recent-doc-delete:active {
+  background: rgba(234, 67, 53, 0.2);
+}
+
+.docs-home-recent-doc-delete:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.docs-home-recent-doc-delete .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .docs-home-recent-doc-icon {
