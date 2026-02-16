@@ -177,6 +177,8 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   // Mbajmë një ref për serverText që të kemi gjithmonë vlerën aktuale brenda callbacks.
   const serverTextRef = useRef<string>(serverText);
   const serverVersionRef = useRef<number>(serverVersion);
+  // Mbajmë një ref për fullText që të kemi gjithmonë vlerën aktuale brenda callbacks.
+  const fullTextRef = useRef<string>(fullText);
   // Lista e fundit e ops të aplikuara nga serveri (remote-only) – përdoret nga editori për të rregulluar cursorin.
   const [lastAppliedOps, setLastAppliedOps] = useState<RealtimeOperation[] | null>(null);
   // Flamur për të treguar kur po aplikojmë ops remote në fullText – përdoret për të shmangur
@@ -191,6 +193,10 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     serverVersionRef.current = serverVersion;
   }, [serverVersion]);
+
+  useEffect(() => {
+    fullTextRef.current = fullText;
+  }, [fullText]);
 
   const { connectionStatus, initialState, activeUsers, sendOps } = useDocumentRealtime({
     documentId: document.id,
