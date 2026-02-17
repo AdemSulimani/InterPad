@@ -178,8 +178,29 @@ const DocumentEditorPageInner = () => {
   }, [documentId, openNewDocument, setDocument, shareToken]);
 
   // Inicializo Yjs (Y.Doc + WebSocket provider) për collaborative editing dhe presence (awareness).
+  // Hapi 1: Mos e starto collaborative editing derisa dokumenti të jetë ngarkuar.
   useEffect(() => {
+    // Nëse nuk kemi id valide ose jemi në modalitetin "new", ç'aktivizo kollaborimin.
     if (!documentId || documentId === 'new') {
+      setCollabStatus('idle');
+      setActiveCollaboratorCount(null);
+      if (collabRef.current) {
+        collabRef.current.provider.destroy();
+        collabRef.current.ydoc.destroy();
+        collabRef.current = null;
+      }
+      attachCollab(null);
+      return;
+    }
+
+    // Nëse dokumenti ende po ngarkohet nga API, mos inicializo Yjs ende.
+    if (isLoadingDocument) {
+      return;
+    }
+
+    // Nëse pas ngarkimit nuk kemi një dokument me id (p.sh. error gjatë load),
+    // shmang inicializimin e collaborative editing për të mos punuar me gjendje bosh.
+    if (!currentDocument.id) {
       setCollabStatus('idle');
       setActiveCollaboratorCount(null);
       if (collabRef.current) {
@@ -258,7 +279,7 @@ const DocumentEditorPageInner = () => {
       attachCollab(null);
       setActiveCollaboratorCount(null);
     };
-  }, [documentId, shareToken, attachCollab]);
+  }, [documentId, shareToken, attachCollab, isLoadingDocument, currentDocument.id]);
 
   // Sidebar closed by default on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
