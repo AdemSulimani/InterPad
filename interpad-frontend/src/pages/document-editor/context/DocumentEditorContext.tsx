@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type * as Y from 'yjs';
 import type { DocumentModel } from '../types/document';
-import { getDefaultDocument, getDocumentContent, PAGE_DELIMITER, contentToPages } from '../types/document';
+import { getDefaultDocument, getDocumentContent, PAGE_DELIMITER, contentToPages, DEFAULT_PAGE_HTML } from '../types/document';
 import type { DocumentComment } from '../../../services/index';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -110,6 +110,9 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const scrollToCommentAnchorRef = useRef<((anchor: CommentAnchorScroll) => void) | null>(null);
+  // Flamur për të dalluar kur po aplikojmë ndryshime nga shared state (remote)
+  // që të mos shkaktojmë cikle dhe të mos mbishkruajmë menjëherë ndryshimet lokale.
+  const isApplyingRemoteRef = useRef(false);
   const [collabDoc, setCollabDoc] = useState<Y.Doc | null>(null);
   const [collabText, setCollabText] = useState<Y.Text | null>(null);
 
@@ -163,6 +166,17 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
    */
   const applyPagesUpdate = useCallback(
     (updater: (prevPages: string[]) => string[]) => {
+      // Nëse aktualisht po aplikojmë ndryshime nga shared state (remote),
+      // mos shkruaj përsëri në Yjs për të shmangur ciklet dhe mbishkrimet.
+      if (isApplyingRemoteRef.current) {
+        setDocumentState((prev) => {
+          const nextPages = updater(prev.pages);
+          return { ...prev, pages: nextPages };
+        });
+        setHasUnsavedChanges(true);
+        return;
+      }
+
       setDocumentState((prev) => {
         const nextPages = updater(prev.pages);
 
@@ -274,10 +288,11 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
 
   /**
    * Lidh ose shkëput editorin nga një dokument kollaborues Yjs.
-   * Kur lidhet:
-   *  - nëse shared text ka përmbajtje, ajo bëhet burimi kryesor për pages (remote state)
-   *  - nëse shared text është bosh, inicializohet nga dokumenti aktual lokal.
-   * Kur shared text ndryshon (nga përdorues lokal ose remote), pages rifreskohen.
+   *
+   * Pas ndryshimit (Hapi 2):
+   *  - Nuk inicializojmë më shared text nga dokumenti lokal në frontend.
+   *  - Gjendja fillestare e shared text vjen nga serveri (MongoDB/Yjs),
+   *    në mënyrë që klientët e rinj të mos e mbishkruajnë aksidentalisht përmbajtjen ekzistuese.
    */
   const attachCollab = useCallback(
     (binding: { ydoc: Y.Doc; yText: Y.Text } | null) => {
@@ -290,23 +305,33 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!collabDoc || !collabText) return;
 
-    // Inicializim i një dokumenti bosh nga gjendja lokale ekzistuese.
-    if (collabText.length === 0) {
-      const initial = getDocumentContent(document);
-      if (initial) {
-        collabDoc.transact(() => {
-          collabText.insert(0, initial);
-        });
-      }
-    }
-
     const applyFromShared = () => {
       const content = collabText.toString();
       const pages = contentToPages(content);
-      setDocumentState((prev) => ({
-        ...prev,
-        pages,
-      }));
+      const isRemoteEmpty = !content || !content.trim();
+      isApplyingRemoteRef.current = true;
+      try {
+        setDocumentState((prev) => {
+          // Nëse remote është bosh, por lokalisht kemi përmbajtje reale (jo vetëm placeholder),
+          // mos e mbishkruaj dokumentin me placeholder.
+          if (isRemoteEmpty) {
+            const hasRealLocalContent = prev.pages.some((p) => {
+              const trimmed = (p ?? '').trim();
+              return trimmed && trimmed !== DEFAULT_PAGE_HTML;
+            });
+            if (hasRealLocalContent) {
+              return prev;
+            }
+          }
+
+          return {
+            ...prev,
+            pages,
+          };
+        });
+      } finally {
+        isApplyingRemoteRef.current = false;
+      }
     };
 
     // Pas lidhjes, trajto Yjs si burim të vërtetë për përmbajtjen.

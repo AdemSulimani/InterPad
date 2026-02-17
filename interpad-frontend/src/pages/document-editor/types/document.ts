@@ -1,4 +1,4 @@
-const DEFAULT_PAGE_HTML = '<p>Start typing your document here...</p>';
+export const DEFAULT_PAGE_HTML = '<p>Start typing your document here...</p>';
 
 /**
  * Modeli i dokumentit në editor.
