@@ -4,6 +4,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const { WebSocketServer } = require('ws');
 const {
   setupWSConnection,
@@ -153,12 +154,17 @@ setPersistence({
 
 const app = express();
 
-// Session configuration për OAuth flow
+// Session configuration për OAuth flow (store në MongoDB, jo në memorie)
 app.use(
   session({
     secret: process.env.JWT_SECRET,
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URL,
+      collectionName: 'sessions',
+      ttl: 24 * 60 * 60, // 24 orë në sekonda
+    }),
     cookie: {
       secure: process.env.NODE_ENV === 'production', // HTTPS në production
       httpOnly: true,
