@@ -189,6 +189,11 @@ app.get('/', (req, res) => {
   res.json({ message: 'Interpad backend is running 🚀' });
 });
 
+// Rrugë e posaçme për monitoring (UptimeRobot, load balancers) – e lehtë, pa DB
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Auth routes
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
